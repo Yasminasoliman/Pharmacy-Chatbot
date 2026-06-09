@@ -4,6 +4,30 @@
 
 Online pharmacy customers often struggle to compare medications, understand prescription requirements, and identify safe alternatives, leading to abandoned purchases and increased support requests. Our AI-powered assistant provides instant, trustworthy medication guidance by combining verified pharmacy data with real-time regulatory information. The result is a safer, more seamless shopping experience that boosts customer confidence, reduces support workload, and increases conversion rates.
 
+## Project Technologies:
+
+- Langchain/Langgraph
+- FastAPI
+- PostgreSQL for SQL + Vector search
+- Streamlit
+- Ollama
+- sentence-transformers and torch+cu126 (to speed up the embedding ingestion but you can you torch on cpu however it will take time to ingest the embeddings.)
+
+## Model used:
+
+- **llama3.2:3b** on Ollama
+- **BAAI/bge-small-en-v1.5** from HaggineFace
+
+  You can use any model you pefer on Ollama or even from LLM API prodivers like Gemini, OpenAI, Grok.
+  make sure to:
+  - Put the API key in the `.env` file
+  - Set provider and model name in the `config.py` file
+  - Install the correct langchain-modelprovider package
+
+## Workflow Architecture:
+
+![langgraph workflow architecture](workflow_diagram.png)
+
 ## Steps to Run the Application
 
 1. Clone the Repository
@@ -18,7 +42,6 @@ This project uses postgresql as its database on a docker container.
 **The postgresql must have pgvector extension to support storing the vector embeddings.**
 
 To create the docker container, use the following command:
-replace the `^` with `/` if on linux
 
 ```
 docker run -d --name pgvector -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=your_password -e POSTGRES_DB=pharmacy_ai -p 5433:5432 -v pgdata:/var/lib/postgresql/data pgvector/pgvector:pg16
