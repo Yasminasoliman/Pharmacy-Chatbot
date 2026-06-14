@@ -100,3 +100,10 @@ def _build(entry: str):
 
 graph     = _build("intent_node")   # text queries
 ocr_graph = _build("ocr_node")      # prescription image uploads
+
+
+if __name__ == "__main__":
+    with open("workflow_diagram.png", "wb") as f:
+        f.write(graph.get_graph(xray=True).draw_mermaid_png())
+    with open("ocr_diagram.png", "wb") as f:
+        f.write(ocr_graph.get_graph(xray=True).draw_mermaid_png())

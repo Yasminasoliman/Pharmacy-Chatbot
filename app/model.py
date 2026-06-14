@@ -12,6 +12,7 @@ def get_llm(
         "openai": ("langchain_openai", "ChatOpenAI", "langchain-openai"),
         "gemini": ("langchain_google_genai", "ChatGoogleGenerativeAI", "langchain-google-genai"),
         "grok": ("langchain_xai", "ChatXAI", "langchain-xai"),
+        "groq":   ("langchain_groq", "ChatGroq", "langchain-groq"),
     }
     
     if provider not in provider_config:

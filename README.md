@@ -27,6 +27,7 @@ Online pharmacy customers often struggle to compare medications, understand pres
 ## Workflow Architecture:
 
 ![langgraph workflow architecture](workflow_diagram.png)
+![langgraph ocr architecture](ocr_diagram.png)
 
 ## Steps to Run the Application
 
