@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Pharmacy Assistant — Multi-Agent Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#f8f9ff;
+  --bg2:#ffffff;
+  --bg3:#eef1f8;
+  --border:rgba(37,99,235,.18);
+  --border2:rgba(37,99,235,.1);
+  --white:#111827;
+  --off:#1f2937;
+  --muted:#4b5563;
+  --dim:#9ca3af;
+  --accent:#2563eb;
+  --blue:#1d4ed8;
+  --blue2:#1e40af;
+  --blue3:#3b82f6;
+  --blue4:#60a5fa;
+  --green:#059669;
+  --glow:rgba(37,99,235,.2);
+}
+
+html,body{height:100%;background:var(--bg);color:var(--white);
+  font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+
+#prog{position:fixed;top:0;left:0;height:3px;
+  background:linear-gradient(90deg,var(--blue),var(--accent));
+  transition:width .4s ease;z-index:500;border-radius:0 2px 2px 0}
+
+#deck{width:100vw;height:100vh;position:relative}
+
+.slide{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  padding:52px 72px 80px;
+  background:#ffffff;
+  opacity:0;pointer-events:none;
+  transition:opacity .45s ease,transform .45s ease;
+  transform:translateX(32px);
+}
+.slide.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.slide.exit{opacity:0;transform:translateX(-32px)}
+
+.slide>*{position:relative;z-index:1}
+
+.s-label{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:11px;font-weight:600;letter-spacing:3px;
+  text-transform:uppercase;color:var(--accent);margin-bottom:20px;
+}
+.s-label::before{content:'';width:20px;height:2px;background:var(--accent);border-radius:1px}
+
+.h1{font-size:54px;font-weight:700;line-height:1.05;color:var(--white);letter-spacing:-1.5px}
+.h1 span{color:var(--accent)}
+.h2{font-size:34px;font-weight:700;line-height:1.1;color:var(--white);letter-spacing:-0.8px}
+.h2 span{color:var(--accent)}
+.h3{font-size:18px;font-weight:600;color:var(--white)}
+.sub{font-size:15px;font-weight:400;color:var(--muted);line-height:1.75;margin-top:14px;max-width:600px}
+
+/* STAT CARDS */
+.stat-row{display:flex;gap:16px;margin-top:36px}
+.stat{
+  flex:1;padding:24px 20px;
+  background:var(--bg3);border-radius:16px;
+  border:1px solid var(--border2);
+  position:relative;overflow:hidden;
+}
+.stat::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--blue),var(--accent));
+}
+.stat-n{font-size:38px;font-weight:700;line-height:1;color:var(--white)}
+.stat-n.blue{color:var(--blue3)}
+.stat-n.accent{color:var(--accent)}
+.stat-n.green{color:var(--green)}
+.stat-n.purple{color:#7c3aed}
+.stat-l{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.4}
+
+/* CARD */
+.card{
+  background:var(--bg3);border-radius:16px;
+  border:1px solid var(--border2);padding:24px 20px;
+  transition:border-color .25s,transform .25s;
+}
+.card:hover{border-color:var(--border);transform:translateY(-2px)}
+
+/* FEAT GRID */
+.feat-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:14px;margin-top:24px;flex:1;
+}
+.feat-card{
+  background:var(--bg3);border-radius:14px;
+  border:1px solid var(--border2);padding:18px 16px;
+  transition:border-color .25s;
+}
+.feat-card:hover{border-color:var(--border)}
+.feat-card.highlight{border-color:rgba(37,99,235,.35);background:rgba(37,99,235,.04)}
+.feat-title{font-size:13px;font-weight:600;color:var(--white);margin-bottom:6px;margin-top:8px}
+.feat-desc{font-size:11.5px;color:var(--muted);line-height:1.55}
+
+/* PIPELINE */
+.pipe-box{
+  flex:1;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:10px;padding:10px 8px;text-align:center;
+}
+.pipe-name{font-size:10px;font-weight:600;color:var(--white);white-space:nowrap}
+.pipe-sub{font-size:9px;color:var(--dim);margin-top:2px;white-space:nowrap}
+.pipe-arr{color:var(--dim);font-size:14px;padding:0 3px;flex-shrink:0}
+
+/* FLOW */
+.flow-row{display:flex;align-items:flex-start;gap:0;margin-top:28px}
+.flow-step{flex:1;text-align:center;position:relative}
+.flow-circle{
+  width:48px;height:48px;border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),var(--accent));
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;font-weight:700;color:#fff;
+  margin:0 auto 12px;box-shadow:0 4px 16px var(--glow);
+}
+.flow-line{
+  position:absolute;top:24px;left:50%;right:-50%;
+  height:2px;background:linear-gradient(90deg,var(--accent),transparent);
+  z-index:-1;
+}
+.flow-step:last-child .flow-line{display:none}
+.flow-title{font-size:12px;font-weight:600;color:var(--white)}
+.flow-desc{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.4;padding:0 4px}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;margin-top:22px;border-radius:14px;overflow:hidden;border:1px solid var(--border2)}
+.tbl th{
+  background:var(--bg3);padding:12px 16px;
+  text-align:left;font-size:11px;font-weight:600;
+  color:var(--blue4);text-transform:uppercase;letter-spacing:1px;
+  border-bottom:1px solid var(--border);
+}
+.tbl td{
+  padding:11px 16px;font-size:12.5px;color:var(--muted);
+  border-bottom:1px solid var(--border2);vertical-align:middle;
+  background:#fff;
+}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(37,99,235,.04)}
+.check{color:var(--green);font-size:15px}
+.hl{color:var(--accent);font-weight:600}
+
+/* ROADMAP */
+.road-row{display:flex;gap:16px;margin-top:24px;flex:1;align-items:stretch}
+.road-card{
+  flex:1;background:#fff;border-radius:16px;
+  border:1px solid var(--border2);padding:24px 20px;
+  position:relative;overflow:hidden;
+  transition:border-color .25s,transform .25s;
+}
+.road-card:hover{border-color:var(--border);transform:translateY(-3px)}
+.road-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--blue),var(--accent));
+}
+.road-q{font-size:11px;font-weight:700;color:var(--accent);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.road-title{font-size:17px;font-weight:600;color:var(--white);margin-bottom:8px}
+.road-desc{font-size:12px;color:var(--muted);line-height:1.6}
+
+/* BULLET LIST */
+.blist{list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.blist li{display:flex;gap:12px;align-items:flex-start;font-size:13px;color:var(--muted);line-height:1.5}
+.blist li::before{content:'';width:6px;height:6px;border-radius:50%;
+  background:var(--accent);flex-shrink:0;margin-top:7px}
+.blist li strong{color:var(--white)}
+
+/* COLS */
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:32px;flex:1;align-items:start;margin-top:22px}
+.cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;flex:1;align-items:stretch;margin-top:22px}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:5px;
+  background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);
+  border-radius:20px;padding:4px 12px;font-size:11px;color:var(--blue3);font-weight:500}
+
+/* QUOTE */
+.quote-block{
+  background:var(--bg3);border-radius:14px;padding:24px 28px;
+  border-left:4px solid var(--accent);margin-top:20px;
+}
+.quote-text{font-size:15px;color:var(--off);line-height:1.7;font-style:italic}
+.quote-cite{font-size:12px;color:var(--dim);margin-top:10px}
+
+/* GRAPH */
+.graph-viz{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:16px;
+  padding:22px;margin-top:16px;flex:1;display:flex;flex-direction:column;justify-content:center;
+}
+.node{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:7px 16px;border-radius:8px;font-size:11.5px;font-weight:600;
+  border:1px solid var(--border);background:#fff;color:var(--white);
+  white-space:nowrap;
+}
+.node.new{border-color:rgba(37,99,235,.5);background:rgba(37,99,235,.06);color:var(--accent)}
+.node.entry{border-color:rgba(79,70,229,.4);background:rgba(79,70,229,.07);color:var(--blue)}
+.node.danger{border-color:rgba(220,38,38,.3);background:rgba(220,38,38,.05);color:#dc2626}
+.node.support{border-color:rgba(5,150,105,.4);background:rgba(5,150,105,.06);color:var(--green)}
+.arrow{color:var(--dim);font-size:12px;padding:0 5px}
+.graph-row{display:flex;align-items:center;justify-content:center;gap:0;margin:5px 0}
+
+/* TAG NEW */
+.tag-new{font-size:9px;color:var(--accent);font-weight:700;background:rgba(37,99,235,.12);
+  border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle}
+
+/* NAV */
+#nav{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:16px;
+  background:rgba(255,255,255,.95);border:1px solid var(--border2);
+  border-radius:40px;padding:10px 20px;
+  backdrop-filter:blur(16px);z-index:400;
+  box-shadow:0 4px 24px rgba(37,99,235,.1);
+}
+.dot{width:6px;height:6px;border-radius:50%;
+  background:var(--bg3);border:1.5px solid var(--dim);cursor:pointer;transition:all .25s}
+.dot.on{background:var(--accent);border-color:var(--accent);transform:scale(1.4)}
+.nb{background:none;border:none;color:var(--muted);font-size:12px;
+  cursor:pointer;padding:4px 10px;border-radius:6px;transition:background .2s,color .2s;font-family:inherit}
+.nb:hover{color:var(--white);background:rgba(37,99,235,.08)}
+.nb:disabled{opacity:.25;cursor:not-allowed}
+#sc{font-size:11px;color:var(--dim);min-width:36px;text-align:center}
+.kbhint{position:fixed;bottom:24px;right:32px;font-size:11px;color:var(--dim)}
+
+/* TITLE DECO */
+.title-deco{
+  position:absolute;top:-80px;right:-60px;
+  width:420px;height:420px;border-radius:50%;
+  background:radial-gradient(circle,rgba(37,99,235,.08) 0%,transparent 70%);
+  pointer-events:none;
+}
+.title-deco2{
+  position:absolute;bottom:-80px;left:-40px;
+  width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle,rgba(79,70,229,.06) 0%,transparent 70%);
+  pointer-events:none;
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.slide.active .s-label{animation:fadeUp .4s .05s ease both}
+.slide.active .h1,.slide.active .h2{animation:fadeUp .4s .1s ease both}
+.slide.active .sub{animation:fadeUp .4s .18s ease both}
+.slide.active .stat-row{animation:fadeUp .5s .25s ease both}
+
+/* code inline */
+code{font-size:10.5px;color:var(--accent);background:rgba(37,99,235,.08);
+  border-radius:4px;padding:1px 5px;font-family:monospace}
+</style>
+</head>
+<body>
+
+<div id="prog"></div>
+<div id="deck">
+
+<!-- ── SLIDE 0: TITLE ── -->
+<div class="slide active" data-i="0">
+  <div class="title-deco"></div>
+  <div class="title-deco2"></div>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+    <div class="s-label">AI Portfolio Project</div>
+    <div class="h1">AI-Powered<br><span>Pharmacy Assistant</span></div>
+    <div class="sub">A multi-agent LangGraph pipeline that helps online pharmacy customers compare medications, check real-time availability, parse prescriptions via OCR, submit support tickets, and get safe verified guidance — instantly.</div>
+    <div class="stat-row" style="max-width:680px">
+      <div class="stat"><div class="stat-n accent">9</div><div class="stat-l">LangGraph Nodes</div></div>
+      <div class="stat"><div class="stat-n blue">5</div><div class="stat-l">AI Tools</div></div>
+      <div class="stat"><div class="stat-n green">4D</div><div class="stat-l">Auto Evaluation</div></div>
+      <div class="stat"><div class="stat-n purple">🎫</div><div class="stat-l">Smart Ticketing</div></div>
+      <div class="stat"><div class="stat-n" style="color:#0891b2;font-size:28px">MCP</div><div class="stat-l">Claude Desktop</div></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:28px">
+    <span class="badge">🦜 LangGraph</span>
+    <span class="badge">⚡ FastAPI</span>
+    <span class="badge">🐘 PostgreSQL + pgvector</span>
+    <span class="badge">🤗 BGE Embeddings</span>
+    <span class="badge">🦙 Llama 3.2</span>
+    <span class="badge">🎨 Streamlit</span>
+    <span class="badge">📧 SMTP Ticketing</span>
+  </div>
+</div>
+
+<!-- ── SLIDE 1: PROBLEM ── -->
+<div class="slide" data-i="1">
+  <div class="s-label">The Problem</div>
+  <div class="h2">Patients Struggle with <span>Medication Decisions</span></div>
+  <div class="sub">Online pharmacy customers face real friction when navigating drug information, alternatives, and support — leading to abandoned carts and overwhelmed staff.</div>
+  <div class="cols2" style="margin-top:24px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:22px">💊</span>
+          <div class="h3" style="font-size:15px">Can't Compare Medications</div>
+        </div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.6">Customers don't know if a generic is safe, bioequivalent, or available without a prescription.</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:22px">📋</span>
+          <div class="h3" style="font-size:15px">Prescription Confusion</div>
+        </div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.6">Uploaded prescriptions are unreadable and there's no automated way to extract and cross-check medicine names.</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:22px">🙋</span>
+          <div class="h3" style="font-size:15px">No Self-Service Support</div>
+        </div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.6">Complaints, order inquiries, and emergency escalations all go to the same overwhelmed phone line with no tracking.</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="quote-block">
+        <div class="quote-text">"I needed to know if I could take two medications together. The website had no answers, so I just left."</div>
+        <div class="quote-cite">— Typical pharmacy customer</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:16px;padding:24px 20px">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px">Business Impact</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:12.5px;color:var(--muted)">Cart abandonment from drug confusion</div>
+            <div style="font-size:18px;font-weight:700;color:#dc2626">↑ High</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:12.5px;color:var(--muted)">Support tickets without context</div>
+            <div style="font-size:18px;font-weight:700;color:#dc2626">↑ High</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:12.5px;color:var(--muted)">Customer confidence at purchase</div>
+            <div style="font-size:18px;font-weight:700;color:#dc2626">↓ Low</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 2: SOLUTION ── -->
+<div class="slide" data-i="2">
+  <div class="s-label">Our Solution</div>
+  <div class="h2">One Question. <span>Complete Guidance.</span></div>
+  <div style="display:flex;gap:32px;margin-top:22px;align-items:start;flex:1">
+    <div style="flex:1">
+      <div style="font-size:14px;color:var(--muted);line-height:1.75;margin-bottom:22px">
+        Ask any medication question in plain language and receive safe, verified, real-time answers — powered by a multi-agent pipeline with smart intent routing, OCR prescription parsing, live stock checking, automated support ticketing, and 4-dimension LLM evaluation.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center">
+          <div style="font-size:32px;font-weight:800;color:var(--accent)">9</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Graph Nodes</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center">
+          <div style="font-size:32px;font-weight:800;color:var(--blue3)">3</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Intent Routes</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center">
+          <div style="font-size:32px;font-weight:800;color:var(--green)">100%</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Responses Evaluated</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#7c3aed">🎫 Tickets</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Auto-Created & Emailed</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+      <div style="background:var(--bg3);border:1px solid rgba(37,99,235,.2);border-radius:14px;padding:18px">
+        <div style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Drug Query</div>
+        <div style="font-size:13.5px;color:var(--white);line-height:1.6">"Is Panadol available without a prescription and are there cheaper alternatives?"</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid rgba(5,150,105,.2);border-radius:14px;padding:18px">
+        <div style="font-size:10px;color:var(--green);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Support Request</div>
+        <div style="font-size:13.5px;color:var(--white);line-height:1.6">"My order hasn't arrived and I want to file a complaint."</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid rgba(220,38,38,.2);border-radius:14px;padding:18px">
+        <div style="font-size:10px;color:#dc2626;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Emergency</div>
+        <div style="font-size:13.5px;color:var(--white);line-height:1.6">"I think I've had an overdose — what do I do?"</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 3: ARCHITECTURE ── -->
+<div class="slide" data-i="3">
+  <div class="s-label">System Architecture</div>
+  <div class="h2">Multi-Agent <span>LangGraph Pipeline</span></div>
+  <div class="sub" style="margin-bottom:0">Two entry points, nine nodes, three intent routes — stateful conditional graph.</div>
+
+  <div class="graph-viz">
+    <div class="graph-row">
+      <div class="node entry">📝 Text Query</div>
+      <span style="padding:0 20px;color:var(--dim)">─────</span>
+      <div class="node entry">🖼️ Image Upload</div>
+    </div>
+    <div class="graph-row" style="gap:120px">
+      <div style="color:var(--dim);font-size:18px">↓</div>
+      <div style="color:var(--dim);font-size:18px">↓</div>
+    </div>
+    <div class="graph-row">
+      <div style="flex:1"></div>
+      <div class="node new">👁️ ocr_node</div>
+      <div style="flex:1"></div>
+    </div>
+    <div class="graph-row"><div style="color:var(--dim);font-size:18px">↓</div></div>
+    <div class="graph-row">
+      <div class="node">🧠 intent_node</div>
+    </div>
+    <div class="graph-row" style="gap:40px">
+      <div style="color:var(--dim);font-size:16px">↙</div>
+      <div style="color:var(--dim);font-size:16px">↓</div>
+      <div style="color:var(--dim);font-size:16px">↘</div>
+    </div>
+    <div class="graph-row" style="gap:16px">
+      <div class="node">🔍 search_node → tool_node</div>
+      <div class="node support">🎫 support_node <span class="tag-new">NEW</span></div>
+      <div class="node danger">💬 answer_directly</div>
+    </div>
+    <div class="graph-row"><div style="color:var(--dim);font-size:18px">↓ (all paths converge)</div></div>
+    <div class="graph-row" style="gap:8px">
+      <div class="node">📝 answer_node</div>
+      <span class="arrow">→</span>
+      <div class="node new">🏪 pharmacy_agent</div>
+      <span class="arrow">→</span>
+      <div class="node">🛡️ safety_node</div>
+      <span class="arrow">→</span>
+      <div class="node new">📊 eval_node</div>
+      <span class="arrow">→</span>
+      <div class="node entry">✅ END</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:14px;margin-top:14px">
+    <div style="display:flex;align-items:center;gap:6px"><div style="width:10px;height:10px;border-radius:3px;background:#fff;border:1px solid rgba(79,70,229,.4)"></div><span style="font-size:11px;color:var(--muted)">Entry / core</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><div style="width:10px;height:10px;border-radius:3px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.5)"></div><span style="font-size:11px;color:var(--muted)">New / upgraded</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><div style="width:10px;height:10px;border-radius:3px;background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.4)"></div><span style="font-size:11px;color:var(--muted)">Support path</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><div style="width:10px;height:10px;border-radius:3px;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.3)"></div><span style="font-size:11px;color:var(--muted)">Direct-answer path</span></div>
+  </div>
+</div>
+
+<!-- ── SLIDE 4: SUPPORT NODE (NEW FEATURE) ── -->
+<div class="slide" data-i="4">
+  <div class="s-label">New Feature</div>
+  <div class="h2">🎫 Smart Support <span>Contact Node</span></div>
+  <div class="sub">When users need help, the agent auto-detects the issue type, creates a structured ticket, emails the pharmacy team, and escalates emergencies instantly.</div>
+
+  <div class="cols2" style="margin-top:22px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px">5 Sub-Intent Types Detected</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.2);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px">🚨</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#dc2626">Emergency</div>
+            <div style="font-size:11.5px;color:var(--muted)">Overdose, chest pain, unconscious — instant escalation + pharmacist phone number</div>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px">😔</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--white)">Complaint</div>
+            <div style="font-size:11.5px;color:var(--muted)">Wrong medicine, expired, bad service, refund request — 24hr follow-up</div>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px">📦</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--white)">Order Inquiry</div>
+            <div style="font-size:11.5px;color:var(--muted)">Track, cancel, delivery, return — 2–4 hr response time</div>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px">💊</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--white)">Medicine Request</div>
+            <div style="font-size:11.5px;color:var(--muted)">Out-of-stock or special order — pharmacist confirms within 1 business day</div>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px">👋</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--white)">General Inquiry</div>
+            <div style="font-size:11.5px;color:var(--muted)">Any other support question — 4–6 hr response</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">Auto-Generated Ticket</div>
+        <div style="background:#fff;border:1px solid var(--border2);border-radius:10px;padding:14px 16px;font-family:monospace;font-size:11px;color:var(--muted);line-height:2">
+          <span style="color:var(--blue3)">"ticket_id"</span>: <span style="color:var(--green)">"RX-4F9A2B1C"</span>,<br>
+          <span style="color:var(--blue3)">"sub_intent"</span>: <span style="color:var(--green)">"complaint"</span>,<br>
+          <span style="color:var(--blue3)">"status"</span>: <span style="color:var(--green)">"open"</span>,<br>
+          <span style="color:var(--blue3)">"channel"</span>: <span style="color:var(--green)">"chatbot"</span>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Delivery Methods (configurable)</div>
+        <ul class="blist" style="margin-top:0">
+          <li><strong>SMTP Email</strong> — ticket sent to <code>SUPPORT_EMAIL</code> via Gmail/SMTP</li>
+          <li><strong>REST API</strong> — POST to <code>SUPPORT_API_URL/tickets</code></li>
+          <li><strong>JSONL log</strong> — always written to <code>support_tickets/tickets.jsonl</code></li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:rgba(220,38,38,.2);background:rgba(220,38,38,.02)">
+        <div style="font-size:11px;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">🚨 Emergency Path</div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.65">Bypasses normal ticket flow — immediately returns pharmacist phone number and emergency services instruction. Ticket still flagged as urgent.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 5: ALL NODES ── -->
+<div class="slide" data-i="5">
+  <div class="s-label">Pipeline Nodes</div>
+  <div class="h2">What Each <span>Node Does</span></div>
+  <div class="feat-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="feat-card">
+      <div style="font-size:24px">🖼️</div>
+      <div class="feat-title">ocr_node</div>
+      <div class="feat-desc">Extracts medicine names from prescription images. Tries vision LLM (GPT-4o/Gemini), falls back to Tesseract. Reformulates a clean text query for downstream nodes.</div>
+    </div>
+    <div class="feat-card">
+      <div style="font-size:24px">🧠</div>
+      <div class="feat-title">intent_node</div>
+      <div class="feat-desc">Classifies query as <code>need_search</code>, <code>answer_directly</code>, or <code>contact_support</code> using structured Pydantic LLM output. Routes the graph to the correct branch.</div>
+    </div>
+    <div class="feat-card highlight">
+      <div style="font-size:24px">🎫</div>
+      <div class="feat-title">support_node <span class="tag-new">NEW</span></div>
+      <div class="feat-desc">Detects support sub-intent, creates a structured RX-XXXXXXXX ticket, sends it via SMTP and/or REST API, and returns a human-friendly acknowledgement. Emergency → instant escalation.</div>
+    </div>
+    <div class="feat-card">
+      <div style="font-size:24px">🔍</div>
+      <div class="feat-title">search_node + tool_node</div>
+      <div class="feat-desc">Invokes the right pharmacy tool (medicine lookup, disease lookup, generic name, drug info). Loops via ToolNode until all needed data is retrieved.</div>
+    </div>
+    <div class="feat-card">
+      <div style="font-size:24px">📝</div>
+      <div class="feat-title">answer_node</div>
+      <div class="feat-desc">Synthesises tool results into a clear, human-friendly answer. Passes the response to the pharmacy availability agent for stock enrichment.</div>
+    </div>
+    <div class="feat-card highlight">
+      <div style="font-size:24px">🏪</div>
+      <div class="feat-title">pharmacy_agent_node <span class="tag-new">v2</span></div>
+      <div class="feat-desc">Checks real-time stock for every medicine in the answer. Connects to <code>PHARMACY_API_URL</code> or uses a realistic Egyptian medicine mock dataset as fallback.</div>
+    </div>
+    <div class="feat-card">
+      <div style="font-size:24px">🛡️</div>
+      <div class="feat-title">safety_node</div>
+      <div class="feat-desc">Reviews all paths — drug answers and support responses — for dangerous dosage advice or harmful content before delivering to the user.</div>
+    </div>
+    <div class="feat-card highlight">
+      <div style="font-size:24px">📊</div>
+      <div class="feat-title">eval_node <span class="tag-new">v2</span></div>
+      <div class="feat-desc">LLM-judge scores every response on relevance, safety, accuracy, and completeness (≥6/10 pass). Results logged to <code>eval_logs/eval_results.jsonl</code>.</div>
+    </div>
+    <div class="feat-card highlight">
+      <div style="font-size:24px">🔗</div>
+      <div class="feat-title">MCP Server <span class="tag-new">v2</span></div>
+      <div class="feat-desc">Exposes all 5 pharmacy tools via Model Context Protocol. Copy one config block to Claude Desktop — no API integration needed, SSE-based.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 6: TOOLS ── -->
+<div class="slide" data-i="6">
+  <div class="s-label">AI Tooling</div>
+  <div class="h2">5 Pharmacy <span>Intelligence Tools</span></div>
+  <div class="sub">Each tool queries a PostgreSQL database combining SQL fuzzy search (pg_trgm) with semantic vector search (pgvector + BGE embeddings).</div>
+
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Tool</th>
+        <th>Input</th>
+        <th>Returns</th>
+        <th>Search</th>
+        <th>Example Query</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="hl">medicine_lookup</span></td>
+        <td>Medicine name</td>
+        <td>Price, generic name, disease, prescription status, manufacturer</td>
+        <td>SQL ILIKE</td>
+        <td>"What is Panadol?"</td>
+      </tr>
+      <tr>
+        <td><span class="hl">disease_lookup</span></td>
+        <td>Disease / condition</td>
+        <td>List of medicines that treat the condition</td>
+        <td>Fuzzy SQL</td>
+        <td>"What treats migraines?"</td>
+      </tr>
+      <tr>
+        <td><span class="hl">generic_name_lookup</span></td>
+        <td>Active ingredient</td>
+        <td>All brand names for that ingredient</td>
+        <td>SQL ILIKE</td>
+        <td>"Brands of Ibuprofen?"</td>
+      </tr>
+      <tr>
+        <td><span class="hl">drug_information</span></td>
+        <td>Medicine name</td>
+        <td>Mechanism, side effects, contraindications</td>
+        <td>Vector (pgvector)</td>
+        <td>"How does Metformin work?"</td>
+      </tr>
+      <tr>
+        <td><span class="hl">check_pharmacy_stock</span></td>
+        <td>Medicine name</td>
+        <td>In-stock status, quantity, price, prescription note</td>
+        <td>API / Mock</td>
+        <td>Real-time availability</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="display:flex;gap:14px;margin-top:20px">
+    <div style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:16px 18px">
+      <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">Database Stack</div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.65">PostgreSQL 16 via Docker · <strong style="color:var(--white)">pgvector</strong> for semantic search · <strong style="color:var(--white)">pg_trgm</strong> for fuzzy matching · BGE-small-en-v1.5 embeddings ingested at setup</div>
+    </div>
+    <div style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:16px 18px">
+      <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">Hybrid Search</div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.65">Brand/generic lookups use fast ILIKE SQL. Mechanism and side-effect queries use <strong style="color:var(--white)">semantic vector similarity</strong> for natural language understanding.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 7: EVALUATION ── -->
+<div class="slide" data-i="7">
+  <div class="s-label">Quality Assurance</div>
+  <div class="h2">Automatic 4-Dimension <span>LLM Evaluation</span></div>
+  <div class="sub">Every response — drug answers and support replies — is scored by an LLM judge before delivery. Results queryable via API.</div>
+
+  <div class="cols2" style="margin-top:22px;gap:28px">
+    <div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:18px 20px;border-left:3px solid var(--accent)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:14px;font-weight:600;color:var(--white)">Relevance</div>
+            <div style="font-size:12px;color:var(--accent);font-weight:600">≥ 6 / 10 pass</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">Does the answer actually address what the user asked?</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:18px 20px;border-left:3px solid var(--green)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:14px;font-weight:600;color:var(--white)">Safety</div>
+            <div style="font-size:12px;color:var(--green);font-weight:600">≥ 6 / 10 pass</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">No dangerous dosage guidance or harmful drug interaction advice?</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:18px 20px;border-left:3px solid var(--blue3)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:14px;font-weight:600;color:var(--white)">Accuracy</div>
+            <div style="font-size:12px;color:var(--blue3);font-weight:600">≥ 6 / 10 pass</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">Consistent with the data returned by the pharmacy tools?</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:18px 20px;border-left:3px solid #7c3aed">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:14px;font-weight:600;color:var(--white)">Completeness</div>
+            <div style="font-size:12px;color:#7c3aed;font-weight:600">≥ 6 / 10 pass</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">Are all key data points from tool results covered in the answer?</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Eval API Endpoints</div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px 16px;font-family:monospace;font-size:12px;color:var(--muted);line-height:2.2">
+          <span style="color:var(--green)">GET</span> <span style="color:var(--blue4)">/eval/summary?n=100</span><br>
+          <span style="color:var(--green)">GET</span> <span style="color:var(--blue4)">/eval/recent?n=20</span>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">JSONL Log Sample</div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px 16px;font-family:monospace;font-size:11px;color:var(--muted);line-height:1.9">
+          { "relevance": 8, "safety": 9,<br>"accuracy": 7, "completeness": 8,<br>"pass": true, "timestamp": "…" }
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">LangSmith Tracing</div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.65">Uncomment 3 env vars to enable full LangSmith tracing — token counts, latency per node, and human-feedback support out of the box.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 8: TECH STACK ── -->
+<div class="slide" data-i="8">
+  <div class="s-label">Technology</div>
+  <div class="h2">Full-Stack <span>Tech Stack</span></div>
+  <div class="sub">Production-ready, local-first, open-source — with optional cloud integrations.</div>
+  <div class="cols3" style="flex:1;margin-top:22px">
+    <div class="card" style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:2px">AI / Agents</div>
+      <ul class="blist">
+        <li><strong>LangGraph</strong> — stateful multi-agent orchestration</li>
+        <li><strong>LangChain</strong> — tool binding, message types</li>
+        <li><strong>Llama 3.2 3B</strong> via Ollama (local inference)</li>
+        <li><strong>BGE-small-en-v1.5</strong> — HuggingFace embeddings</li>
+        <li><strong>GPT-4o / Gemini</strong> — vision LLM for OCR (optional)</li>
+        <li><strong>Tesseract</strong> — OCR fallback</li>
+      </ul>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:11px;color:var(--blue3);font-weight:700;text-transform:uppercase;letter-spacing:2px">Backend / Data</div>
+      <ul class="blist">
+        <li><strong>FastAPI</strong> — async REST API</li>
+        <li><strong>PostgreSQL 16</strong> — primary data store</li>
+        <li><strong>pgvector</strong> — vector similarity search</li>
+        <li><strong>pg_trgm</strong> — fuzzy text matching</li>
+        <li><strong>SQLAlchemy</strong> — ORM + raw queries</li>
+        <li><strong>Docker</strong> — containerised DB + pgvector setup</li>
+      </ul>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:11px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:2px">Integrations</div>
+      <ul class="blist">
+        <li><strong>Streamlit</strong> — chat UI with file upload</li>
+        <li><strong>MCP Server</strong> — Claude Desktop integration</li>
+        <li><strong>SMTP / smtplib</strong> — ticket email delivery</li>
+        <li><strong>httpx</strong> — async REST ticket posting</li>
+        <li><strong>LangSmith</strong> — observability & tracing</li>
+        <li><strong>Pydantic</strong> — structured LLM outputs</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 9: FLOW ── -->
+<div class="slide" data-i="9">
+  <div class="s-label">How It Works</div>
+  <div class="h2">End-to-End <span>User Flows</span></div>
+
+  <div style="display:flex;flex-direction:column;gap:18px;margin-top:24px;flex:1">
+    <div>
+      <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px">Drug Information Flow</div>
+      <div class="flow-row" style="margin-top:0">
+        <div class="flow-step"><div class="flow-circle">1</div><div class="flow-line"></div><div class="flow-title">User asks</div><div class="flow-desc">Text or image via Streamlit or Claude Desktop</div></div>
+        <div class="flow-step"><div class="flow-circle">2</div><div class="flow-line"></div><div class="flow-title">OCR (if image)</div><div class="flow-desc">Prescription parsed, medicines extracted</div></div>
+        <div class="flow-step"><div class="flow-circle">3</div><div class="flow-line"></div><div class="flow-title">Intent: search</div><div class="flow-desc">LLM classifies as need_search</div></div>
+        <div class="flow-step"><div class="flow-circle">4</div><div class="flow-line"></div><div class="flow-title">Tool loop</div><div class="flow-desc">DB queried via SQL + vector search</div></div>
+        <div class="flow-step"><div class="flow-circle">5</div><div class="flow-line"></div><div class="flow-title">Stock check</div><div class="flow-desc">Availability added to answer</div></div>
+        <div class="flow-step"><div class="flow-circle">6</div><div class="flow-line"></div><div class="flow-title">Safety + eval</div><div class="flow-desc">Filtered, scored 4D</div></div>
+        <div class="flow-step"><div class="flow-circle">7</div><div class="flow-title">Response</div><div class="flow-desc">Safe verified answer delivered</div></div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px">Support Contact Flow</div>
+      <div class="flow-row" style="margin-top:0">
+        <div class="flow-step"><div class="flow-circle" style="background:linear-gradient(135deg,var(--green),#34d399)">1</div><div class="flow-line" style="background:linear-gradient(90deg,var(--green),transparent)"></div><div class="flow-title">User asks</div><div class="flow-desc">Complaint, order inquiry, or emergency</div></div>
+        <div class="flow-step"><div class="flow-circle" style="background:linear-gradient(135deg,var(--green),#34d399)">2</div><div class="flow-line" style="background:linear-gradient(90deg,var(--green),transparent)"></div><div class="flow-title">Intent: support</div><div class="flow-desc">LLM classifies as contact_support</div></div>
+        <div class="flow-step"><div class="flow-circle" style="background:linear-gradient(135deg,var(--green),#34d399)">3</div><div class="flow-line" style="background:linear-gradient(90deg,var(--green),transparent)"></div><div class="flow-title">Sub-intent</div><div class="flow-desc">Keyword detection: emergency, complaint, order, etc.</div></div>
+        <div class="flow-step"><div class="flow-circle" style="background:linear-gradient(135deg,var(--green),#34d399)">4</div><div class="flow-line" style="background:linear-gradient(90deg,var(--green),transparent)"></div><div class="flow-title">Ticket created</div><div class="flow-desc">RX-XXXXXXXX generated with full context</div></div>
+        <div class="flow-step"><div class="flow-circle" style="background:linear-gradient(135deg,var(--green),#34d399)">5</div><div class="flow-line" style="background:linear-gradient(90deg,var(--green),transparent)"></div><div class="flow-title">Delivered</div><div class="flow-desc">SMTP email + REST API + JSONL log</div></div>
+        <div class="flow-step"><div class="flow-circle" style="background:linear-gradient(135deg,var(--green),#34d399)">6</div><div class="flow-title">Acknowledged</div><div class="flow-desc">User gets ticket ID + next steps + SLA</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 10: ROADMAP ── -->
+<div class="slide" data-i="10">
+  <div class="s-label">Roadmap</div>
+  <div class="h2">What's <span>Coming Next</span></div>
+  <div class="sub">Solid foundation — here's how to grow this into a full pharmacy platform.</div>
+  <div class="road-row">
+    <div class="road-card">
+      <div class="road-q">Phase 1</div>
+      <div class="road-title">Arabic Language Support</div>
+      <div class="road-desc">Add bilingual Arabic/English NLP for Egyptian and Gulf users. Translate medicine names between Arabic trade names and English generics, and support full Arabic chat queries end-to-end.</div>
+    </div>
+    <div class="road-card">
+      <div class="road-q">Phase 2</div>
+      <div class="road-title">Personalised Patient Profile</div>
+      <div class="road-desc">Store each user's medication history, known allergies, and chronic conditions. Use the profile to personalise drug recommendations and proactively surface relevant safety warnings per user.</div>
+    </div>
+    <div class="road-card">
+      <div class="road-q">Phase 3</div>
+      <div class="road-title">Voice & WhatsApp Channel</div>
+      <div class="road-desc">Expose the same pipeline over WhatsApp Business API and voice input. Reach customers who prefer messaging or phone over a web interface — with zero changes to the backend graph.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SLIDE 11: CLOSING ── -->
+<div class="slide" data-i="11">
+  <div class="title-deco"></div>
+  <div class="title-deco2"></div>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+    <div class="s-label" style="justify-content:center">AI Pharmacy Assistant</div>
+    <div class="h1" style="font-size:50px">Safe. Verified.<br><span>Instant Guidance.</span></div>
+    <div class="sub" style="text-align:center;max-width:640px;margin:18px auto 0">
+      A production-ready multi-agent pipeline that transforms online pharmacy experiences — combining LangGraph, pgvector semantic search, OCR prescription parsing, smart support ticketing with SMTP delivery, real-time stock availability, and automatic 4D LLM evaluation.
+    </div>
+    <div style="display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;justify-content:center">
+      <span class="badge" style="font-size:12px;padding:7px 16px">🦜 LangGraph Multi-Agent</span>
+      <span class="badge" style="font-size:12px;padding:7px 16px">🐘 pgvector Semantic Search</span>
+      <span class="badge" style="font-size:12px;padding:7px 16px">🖼️ OCR Prescription Parsing</span>
+      <span class="badge" style="font-size:12px;padding:7px 16px">🎫 Smart Support Ticketing</span>
+      <span class="badge" style="font-size:12px;padding:7px 16px">📊 4D Auto-Evaluation</span>
+      <span class="badge" style="font-size:12px;padding:7px 16px">🔗 MCP / Claude Desktop</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<nav id="nav">
+  <button class="nb" id="prev">← Prev</button>
+  <div id="dots"></div>
+  <span id="sc">1/12</span>
+  <button class="nb" id="next">Next →</button>
+</nav>
+<div class="kbhint">← → to navigate</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total  = slides.length;
+let cur = 0;
+
+const dotsEl = document.getElementById('dots');
+slides.forEach((_,i)=>{
+  const d = document.createElement('span');
+  d.className='dot'+(i===0?' on':'');
+  d.onclick=()=>go(i);
+  dotsEl.appendChild(d);
+});
+
+function go(n){
+  if(n<0||n>=total) return;
+  slides[cur].classList.remove('active');
+  slides[cur].classList.add('exit');
+  setTimeout(()=>slides[cur].classList.remove('exit'),500);
+  cur=n;
+  slides[cur].classList.add('active');
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===cur));
+  document.getElementById('sc').textContent=(cur+1)+'/'+total;
+  document.getElementById('prog').style.width=((cur+1)/total*100)+'%';
+  document.getElementById('prev').disabled=cur===0;
+  document.getElementById('next').disabled=cur===total-1;
+}
+
+document.getElementById('prev').onclick=()=>go(cur-1);
+document.getElementById('next').onclick=()=>go(cur+1);
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' ') go(cur+1);
+  if(e.key==='ArrowLeft') go(cur-1);
+});
+go(0);
+</script>
+</body>
+</html>
