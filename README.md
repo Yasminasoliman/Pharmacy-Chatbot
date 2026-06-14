@@ -4,6 +4,9 @@
 
 Online pharmacy customers often struggle to compare medications, understand prescription requirements, and identify safe alternatives, leading to abandoned purchases and increased support requests. Our AI-powered assistant provides instant, trustworthy medication guidance by combining verified pharmacy data with real-time regulatory information. The result is a safer, more seamless shopping experience that boosts customer confidence, reduces support workload, and increases conversion rates.
 
+## Demo Video
+https://github.com/user-attachments/assets/5f43fa86-fd57-4f28-80ef-6bb440e49b0d
+
 ## Project Technologies:
 
 - Langchain/Langgraph
